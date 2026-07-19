@@ -1,0 +1,13 @@
+PROGRAM main
+VAR
+END_VAR
+
+{
+  "name": "main",
+  "rung": {
+    "comment": "",
+    "edges": [],
+    "nodes": []
+  }
+}
+END_PROGRAM

@@ -1,0 +1,10 @@
+{
+  "communicationConfiguration": {
+    "modbusRTU": {
+      "rtuBaudRate": "115200",
+      "rtuDataBits": 8,
+      "rtuStopBits": 1,
+      "rtuParity": "None"
+    }
+  }
+}
