@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="OpenPLC parking lot barrier controller using CTUD logic, capacity monitoring, entry and exit simulation, and automatic full-lot protection.">
+  <meta name="author" content="Jeremiah Lupton">
+  <title>Car Parking Lot Barrier Controller | OpenPLC</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="#top" aria-label="Car Parking Lot Barrier Controller home">
+      <span class="brand-mark">PLC</span>
+      <span>
+        <strong>Parking Barrier Controller</strong>
+        <small>OpenPLC Function Block Diagram Project</small>
+      </span>
+    </a>
+
+    <button class="menu-toggle" type="button" aria-label="Open navigation" aria-expanded="false">
+      <span></span>
+      <span></span>
+      <span></span>
+    </button>
+
+    <nav class="site-nav" aria-label="Primary navigation">
+      <a href="#overview">Overview</a>
+      <a href="#logic">Logic</a>
+      <a href="#testing">Testing</a>
+      <a href="#roadmap">Roadmap</a>
+      <a class="nav-cta" href="#repository">Repository</a>
+    </nav>
+  </header>
+
+  <main id="top">
+    <section class="hero section">
+      <div class="hero-copy">
+        <p class="eyebrow">VERSION 1.0 · OPENPLC LOGIC & SIMULATION</p>
+        <h1>Car Parking Lot Barrier Controller</h1>
+        <p class="hero-lead">
+          A compact IEC 61131-3 control project that tracks parking occupancy with a CTUD counter,
+          automatically permits vehicle entry when capacity is available, and blocks the barrier when the lot is full.
+        </p>
+
+        <div class="hero-actions">
+          <a class="button primary" href="#testing">View Test Results</a>
+          <a class="button secondary" href="#logic">Explore PLC Logic</a>
+        </div>
+
+        <div class="hero-stats" aria-label="Project highlights">
+          <article>
+            <strong>CTUD</strong>
+            <span>Up/Down Counter</span>
+          </article>
+          <article>
+            <strong>10</strong>
+            <span>Simulated Capacity</span>
+          </article>
+          <article>
+            <strong>FBD</strong>
+            <span>IEC 61131-3</span>
+          </article>
+        </div>
+      </div>
+
+      <div class="hero-visual">
+        <div class="hero-panel">
+          <img
+            src="assets/complete-fbd.png"
+            alt="Completed OpenPLC function block diagram for the parking barrier controller"
+          >
+          <div class="hero-panel-caption">
+            <span>ParkingController</span>
+            <strong>Function Block Diagram</strong>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="overview" class="section">
+      <div class="section-heading">
+        <p class="eyebrow">PROJECT OVERVIEW</p>
+        <h2>Automated capacity control for a small parking lot</h2>
+        <p>
+          The controller counts arriving and departing vehicles, evaluates available capacity,
+          and controls the entry barrier through a simple, testable Function Block Diagram.
+        </p>
+      </div>
+
+      <div class="feature-grid">
+        <article class="feature-card">
+          <span class="feature-number">01</span>
+          <h3>Occupancy Tracking</h3>
+          <p>The CTUD block increments for entries and decrements for exits while maintaining the current vehicle count.</p>
+        </article>
+
+        <article class="feature-card">
+          <span class="feature-number">02</span>
+          <h3>Barrier Permission</h3>
+          <p>The barrier opens only when an entry request is present and the current count is below maximum capacity.</p>
+        </article>
+
+        <article class="feature-card">
+          <span class="feature-number">03</span>
+          <h3>Full-Lot Protection</h3>
+          <p>When the preset value is reached, the full-lot output becomes active and blocks additional entry commands.</p>
+        </article>
+
+        <article class="feature-card">
+          <span class="feature-number">04</span>
+          <h3>Dual Test Inputs</h3>
+          <p>Both simulated sensor inputs and HMI command inputs were validated for entry, exit, and reset operation.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section split-section">
+      <div>
+        <p class="eyebrow">CONTROL REQUIREMENTS</p>
+        <h2>Core operating sequence</h2>
+      </div>
+
+      <div class="requirements-list">
+        <article>
+          <span>01</span>
+          <div>
+            <h3>Detect an entry request</h3>
+            <p>An entry sensor or HMI command creates a rising-edge signal for the CTUD count-up input.</p>
+          </div>
+        </article>
+
+        <article>
+          <span>02</span>
+          <div>
+            <h3>Check available capacity</h3>
+            <p>The barrier is permitted only while the lot-full condition remains false.</p>
+          </div>
+        </article>
+
+        <article>
+          <span>03</span>
+          <div>
+            <h3>Track departures</h3>
+            <p>An exit sensor or HMI command pulses the CTUD count-down input and reduces the occupancy count.</p>
+          </div>
+        </article>
+
+        <article>
+          <span>04</span>
+          <div>
+            <h3>Reset the simulation</h3>
+            <p>The reset path clears the CTUD current value and returns the system to the empty-lot condition.</p>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section id="logic" class="section section-alt">
+      <div class="section-heading">
+        <p class="eyebrow">PLC LOGIC</p>
+        <h2>Function Block Diagram and variable configuration</h2>
+        <p>
+          The program combines OR logic for sensor and HMI requests, a CTUD function block for occupancy,
+          and AND/NOT logic for barrier permission.
+        </p>
+      </div>
+
+      <div class="media-grid media-grid-large">
+        <figure class="media-card">
+          <button class="image-button" type="button" data-image="assets/complete-fbd.png" data-alt="Completed parking controller function block diagram">
+            <img src="assets/complete-fbd.png" alt="Completed parking controller function block diagram">
+          </button>
+          <figcaption>
+            <span>Control Logic</span>
+            <strong>Complete Function Block Diagram</strong>
+          </figcaption>
+        </figure>
+
+        <figure class="media-card">
+          <button class="image-button" type="button" data-image="assets/variable-table.png" data-alt="OpenPLC parking controller variable table">
+            <img src="assets/variable-table.png" alt="OpenPLC parking controller variable table">
+          </button>
+          <figcaption>
+            <span>Configuration</span>
+            <strong>Variable Table and Data Types</strong>
+          </figcaption>
+        </figure>
+      </div>
+
+      <div class="logic-callout">
+        <div>
+          <p class="eyebrow">BARRIER CONDITION</p>
+          <code>Barrier_Open = Entry_Request AND NOT Lot_Full</code>
+        </div>
+        <p>
+          Entry_Request is generated from either the physical-style entry sensor or the HMI simulation input.
+          The lot-full signal overrides the request and keeps the barrier closed.
+        </p>
+      </div>
+    </section>
+
+    <section id="testing" class="section">
+      <div class="section-heading">
+        <p class="eyebrow">SIMULATION RESULTS</p>
+        <h2>Validated operating scenarios</h2>
+        <p>
+          Each test was performed in the OpenPLC Online debugger using Boolean pulses and live monitoring of the CTUD outputs.
+        </p>
+      </div>
+
+      <div class="filter-bar" role="group" aria-label="Screenshot filters">
+        <button class="filter-button active" type="button" data-filter="all">All Tests</button>
+        <button class="filter-button" type="button" data-filter="entry">Entry</button>
+        <button class="filter-button" type="button" data-filter="exit">Exit</button>
+        <button class="filter-button" type="button" data-filter="status">Status</button>
+      </div>
+
+      <div class="media-grid test-grid">
+        <figure class="media-card test-card" data-category="status">
+          <button class="image-button" type="button" data-image="assets/empty-lot-test.png" data-alt="Empty parking lot debugger test">
+            <img src="assets/empty-lot-test.png" alt="Empty parking lot debugger test">
+          </button>
+          <figcaption>
+            <span>Initial State</span>
+            <strong>Empty Lot Test</strong>
+            <p>Car count is zero, the empty indicator is active, and the barrier remains closed.</p>
+          </figcaption>
+        </figure>
+
+        <figure class="media-card test-card" data-category="entry">
+          <button class="image-button" type="button" data-image="assets/entry-sensor-test.png" data-alt="Entry sensor simulation test">
+            <img src="assets/entry-sensor-test.png" alt="Entry sensor simulation test">
+          </button>
+          <figcaption>
+            <span>Sensor Scenario</span>
+            <strong>Entry Sensor Test</strong>
+            <p>A rising-edge sensor pulse opens the barrier and increments the vehicle count.</p>
+          </figcaption>
+        </figure>
+
+        <figure class="media-card test-card" data-category="entry">
+          <button class="image-button" type="button" data-image="assets/entry-hmi-test.png" data-alt="Entry HMI simulation test">
+            <img src="assets/entry-hmi-test.png" alt="Entry HMI simulation test">
+          </button>
+          <figcaption>
+            <span>HMI Scenario</span>
+            <strong>Entry HMI Test</strong>
+            <p>The HMI request follows the same OR path and produces the same validated entry behavior.</p>
+          </figcaption>
+        </figure>
+
+        <figure class="media-card test-card" data-category="exit">
+          <button class="image-button" type="button" data-image="assets/exit-sensor-test.png" data-alt="Exit sensor simulation test">
+            <img src="assets/exit-sensor-test.png" alt="Exit sensor simulation test">
+          </button>
+          <figcaption>
+            <span>Sensor Scenario</span>
+            <strong>Exit Sensor Test</strong>
+            <p>An exit pulse drives the CTUD count-down input and reduces occupancy by one.</p>
+          </figcaption>
+        </figure>
+
+        <figure class="media-card test-card" data-category="exit">
+          <button class="image-button" type="button" data-image="assets/exit-hmi-test.png" data-alt="Exit HMI simulation test">
+            <img src="assets/exit-hmi-test.png" alt="Exit HMI simulation test">
+          </button>
+          <figcaption>
+            <span>HMI Scenario</span>
+            <strong>Exit HMI Test</strong>
+            <p>The HMI exit command is validated independently from the simulated physical sensor input.</p>
+          </figcaption>
+        </figure>
+
+        <figure class="media-card test-card" data-category="status">
+          <button class="image-button" type="button" data-image="assets/full-lot-test.png" data-alt="Full parking lot debugger test">
+            <img src="assets/full-lot-test.png" alt="Full parking lot debugger test">
+          </button>
+          <figcaption>
+            <span>Capacity Protection</span>
+            <strong>Full Lot Test</strong>
+            <p>At maximum capacity, Lot_Full becomes true and the barrier permission is removed.</p>
+          </figcaption>
+        </figure>
+
+        <figure class="media-card test-card" data-category="status">
+          <button class="image-button" type="button" data-image="assets/reset-test.png" data-alt="Parking controller reset test">
+            <img src="assets/reset-test.png" alt="Parking controller reset test">
+          </button>
+          <figcaption>
+            <span>Recovery</span>
+            <strong>Reset Test</strong>
+            <p>The reset command returns the vehicle count to zero and restores the empty-lot state.</p>
+          </figcaption>
+        </figure>
+
+        <figure class="media-card test-card" data-category="status">
+          <button class="image-button" type="button" data-image="assets/plc-run-log.png" data-alt="Successful OpenPLC compile and runtime log">
+            <img src="assets/plc-run-log.png" alt="Successful OpenPLC compile and runtime log">
+          </button>
+          <figcaption>
+            <span>Build Verification</span>
+            <strong>Successful Compile and Run</strong>
+            <p>The final build completed successfully and the PLC program entered the running state.</p>
+          </figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section class="section section-alt">
+      <div class="section-heading">
+        <p class="eyebrow">I/O AND VARIABLES</p>
+        <h2>Key project signals</h2>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Variable</th>
+              <th>Type</th>
+              <th>Purpose</th>
+              <th>Version 1 Role</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>Entry_Sensor</code></td>
+              <td>BOOL</td>
+              <td>Simulated entrance detector</td>
+              <td>CTUD count-up request</td>
+            </tr>
+            <tr>
+              <td><code>Exit_Sensor</code></td>
+              <td>BOOL</td>
+              <td>Simulated exit detector</td>
+              <td>CTUD count-down request</td>
+            </tr>
+            <tr>
+              <td><code>Entry_HMI</code></td>
+              <td>BOOL</td>
+              <td>Future HMI entry command</td>
+              <td>Validated through OR logic</td>
+            </tr>
+            <tr>
+              <td><code>Exit_HMI</code></td>
+              <td>BOOL</td>
+              <td>Future HMI exit command</td>
+              <td>Validated through OR logic</td>
+            </tr>
+            <tr>
+              <td><code>Car_Count</code></td>
+              <td>INT</td>
+              <td>Current parking occupancy</td>
+              <td>CTUD current value</td>
+            </tr>
+            <tr>
+              <td><code>Lot_Full</code></td>
+              <td>BOOL</td>
+              <td>Capacity reached indicator</td>
+              <td>Blocks entry barrier</td>
+            </tr>
+            <tr>
+              <td><code>Barrier_Open</code></td>
+              <td>BOOL</td>
+              <td>Entrance barrier command</td>
+              <td>Entry request AND available space</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="roadmap" class="section">
+      <div class="section-heading">
+        <p class="eyebrow">VERSION ROADMAP</p>
+        <h2>From PLC simulation to a complete HMI system</h2>
+      </div>
+
+      <div class="roadmap-grid">
+        <article class="roadmap-card current">
+          <div class="roadmap-topline">
+            <span>Released</span>
+            <strong>v1.0.0</strong>
+          </div>
+          <h3>OpenPLC Logic and Simulation</h3>
+          <ul>
+            <li>CTUD occupancy tracking</li>
+            <li>Entry and exit request handling</li>
+            <li>Capacity interlock</li>
+            <li>Barrier control logic</li>
+            <li>Debugger validation</li>
+            <li>GitHub Pages case study</li>
+          </ul>
+        </article>
+
+        <article class="roadmap-card">
+          <div class="roadmap-topline">
+            <span>Planned</span>
+            <strong>v2.0.0</strong>
+          </div>
+          <h3>HMI and Modbus TCP Integration</h3>
+          <ul>
+            <li>CODESYS or FUXA visualization</li>
+            <li>Modbus TCP communications</li>
+            <li>Live occupancy and capacity display</li>
+            <li>Animated barrier status</li>
+            <li>Alarm and event indicators</li>
+            <li>Occupancy trend visualization</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section id="repository" class="section repository-section">
+      <div>
+        <p class="eyebrow">PROJECT REPOSITORY</p>
+        <h2>Explore the source files and project documentation</h2>
+        <p>
+          Version 1 documents the control strategy, OpenPLC implementation, debugger validation,
+          screenshots, and deployment notes for the parking barrier controller.
+        </p>
+      </div>
+
+      <div class="repository-actions">
+        <a class="button primary" href="https://github.com/jd-dev-king/Car-Parking-Lot-Barrier-Controller" target="_blank" rel="noopener noreferrer">
+          View GitHub Profile
+        </a>
+        <a class="button secondary" href="#top">Back to Top</a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div>
+      <strong>Car Parking Lot Barrier Controller</strong>
+      <span>OpenPLC · IEC 61131-3 · Function Block Diagram</span>
+    </div>
+    <p>Designed and developed by Jeremiah Lupton · <span id="current-year"></span></p>
+  </footer>
+
+  <dialog class="image-modal" aria-label="Expanded project screenshot">
+    <button class="modal-close" type="button" aria-label="Close image">×</button>
+    <img src="" alt="">
+    <p></p>
+  </dialog>
+
+  <script src="script.js"></script>
+</body>
+</html>

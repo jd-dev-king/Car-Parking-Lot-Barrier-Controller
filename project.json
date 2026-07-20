@@ -4,14 +4,13 @@
     "type": "plc-project"
   },
   "data": {
-    "pous": [],
     "dataTypes": [],
-    "libraries": [],
+    "pous": [],
     "configuration": {
       "resource": {
         "tasks": [
           {
-            "name": "task0",
+            "name": "MainTask",
             "triggering": "Cyclic",
             "interval": "T#20ms",
             "priority": 1
@@ -19,13 +18,14 @@
         ],
         "instances": [
           {
-            "name": "instance0",
-            "program": "main",
-            "task": "task0"
+            "name": "ParkingInstance",
+            "task": "MainTask",
+            "program": "ParkingController"
           }
         ],
         "globalVariables": []
       }
-    }
+    },
+    "libraries": []
   }
 }
