@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="EES Universe browser-based virtual PLC and 3D parking lot simulator.">
+  <title>EES 3D Parking PLC Simulator</title>
+  <link rel="stylesheet" href="./style.css">
+  <script type="importmap">
+    {"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.185.1/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.185.1/examples/jsm/"}}
+  </script>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand"><div class="brand-orb">PLC</div><div><p>EES UNIVERSE · VIRTUAL AUTOMATION LAB</p><h1>3D Parking PLC Simulator</h1></div></div>
+      <div class="status-row"><span class="chip online">● PLC ONLINE</span><span class="chip"><b id="scan-count">0</b> scans</span><span class="chip">100 ms cycle</span></div>
+    </header>
+
+    <main class="grid">
+      <section class="panel viewport-panel">
+        <div class="panel-head"><div><p>THREE.JS DIGITAL TWIN</p><h2>Parking Lot Viewport</h2></div><div class="head-actions"><button data-camera="overview">Overview</button><button data-camera="entry">Entry</button><button data-camera="exit">Exit</button></div></div>
+        <div id="scene"></div>
+        <div class="hologram">
+          <small>LIVE OCCUPANCY</small>
+          <div><strong id="count">0</strong><span>/10</span></div>
+          <div class="meter"><i id="meter-fill"></i></div>
+          <h3 id="lot-state">LOT EMPTY</h3>
+          <p id="remaining">10 spaces available</p>
+        </div>
+      </section>
+
+      <aside class="right-column">
+        <section class="panel hmi-panel">
+          <div class="panel-head"><div><p>OPERATOR STATION</p><h2>Holographic HMI</h2></div><span class="mode manual" id="mode">MANUAL</span></div>
+          <div class="state-card"><span></span><div><small>CURRENT STATE</small><b id="state-text">Ready — lot empty</b></div></div>
+          <div class="controls">
+            <button id="entry"><em>IN</em><b>Request Entry</b><small id="entry-source">Pulse Entry_HMI</small></button>
+            <button id="exit"><em>OUT</em><b>Request Exit</b><small id="exit-source">Pulse Exit_HMI</small></button>
+            <button id="toggle-mode"><em>M</em><b>Toggle Mode</b><small id="mode-action">Switch to Auto</small></button>
+            <button id="reset"><em>R</em><b>Reset Count</b><small>Clear PLC counter</small></button>
+          </div>
+          <button id="estop" class="estop">● EMERGENCY STOP</button>
+          <div class="io-grid">
+            <div><small>Entry gate</small><b id="entry-gate">CLOSED</b></div><div><small>Exit gate</small><b id="exit-gate">CLOSED</b></div>
+            <div><small>Lot full</small><b id="full">FALSE</b></div><div><small>Lot empty</small><b id="empty">TRUE</b></div>
+          </div>
+        </section>
+
+        <section class="panel tags-panel">
+          <div class="panel-head"><div><p>PLC DIAGNOSTICS</p><h2>Live Tags</h2></div></div>
+          <div class="tags">
+            <div class="tag head"><span>Tag</span><span>Type</span><span>Value</span></div>
+            <div class="tag"><span>Entry_Sensor</span><span>BOOL</span><b id="t-entry">FALSE</b></div>
+            <div class="tag"><span>Exit_Sensor</span><span>BOOL</span><b id="t-exit">FALSE</b></div>
+            <div class="tag"><span>Entry_HMI</span><span>BOOL</span><b id="t-entry-hmi">FALSE</b></div>
+            <div class="tag"><span>Exit_HMI</span><span>BOOL</span><b id="t-exit-hmi">FALSE</b></div>
+            <div class="tag"><span>Barrier_Open</span><span>BOOL</span><b id="t-entry-gate">FALSE</b></div>
+            <div class="tag"><span>Exit_Barrier</span><span>BOOL</span><b id="t-exit-gate">FALSE</b></div>
+            <div class="tag"><span>Lot_Full</span><span>BOOL</span><b id="t-full">FALSE</b></div>
+            <div class="tag"><span>Lot_Empty</span><span>BOOL</span><b id="t-empty">TRUE</b></div>
+            <div class="tag"><span>Car_Count</span><span>INT</span><b id="t-count">0</b></div>
+          </div>
+        </section>
+      </aside>
+
+      <section class="panel logic-panel">
+        <div class="panel-head"><div><p>IEC 61131-3 CONCEPT VIEW</p><h2>Interactive Logic</h2></div><div class="head-actions"><button class="active" data-view="fbd">FBD</button><button data-view="ladder">Ladder</button></div></div>
+        <div id="fbd" class="logic-view active">
+          <div class="fbd-flow">
+            <div class="node" id="node-entry">Entry_Request<b>FALSE</b></div><i id="wire-entry"></i><div class="block">OR<br><b>ENTRY_REQ</b></div><i></i>
+            <div class="block counter"><strong>CTUD</strong><span>CU <b id="cu">0</b></span><span>CD <b id="cd">0</b></span><span>PV <b>10</b></span><span>CV <b id="cv">0</b></span><span>QU <b id="qu">0</b></span><span>QD <b id="qd">1</b></span></div>
+            <i></i><div class="block">AND / NOT<br><b>INTERLOCK</b></div><i id="wire-gate"></i><div class="node" id="node-gate">Barrier_Open<b>FALSE</b></div>
+          </div>
+          <div class="exit-flow"><div class="node" id="node-exit">Exit_Request<b>FALSE</b></div><i id="wire-exit"></i><div class="block">OR<br><b>EXIT_REQ</b></div></div>
+        </div>
+        <div id="ladder" class="logic-view">
+          <div class="ladder">
+            <div class="rung"><span>000</span><div class="contact" id="lad-entry">Entry_Request</div><div class="contact nc" id="lad-full">Lot_Full</div><div class="coil" id="lad-gate">Barrier_Open</div></div>
+            <div class="rung"><span>001</span><div class="contact" id="lad-exit">Exit_Request</div><div class="coil" id="lad-exit-gate">Exit_Barrier</div></div>
+            <div class="rung"><span>002</span><div class="counter-card">CTUD ParkingCounter · CV=<b id="lad-count">0</b> · PV=10</div></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel log-panel">
+        <div class="panel-head"><div><p>EVENT BUFFER</p><h2>PLC Event Log</h2></div><button id="clear-log">Clear</button></div>
+        <div id="log"></div>
+      </section>
+    </main>
+    <footer><span>EES Universe by JDL· Browser Automation Experience</span><span>Virtual PLC + FBD/HMI + Three.js Digital Twin</span></footer>
+  </div>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
