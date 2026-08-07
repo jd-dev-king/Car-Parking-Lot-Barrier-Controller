@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="EES Universe Pharma employee parking access-control digital twin with a browser PLC, PostgreSQL authorization, security visitor workflow, and Three.js 3D parking lot.">
+  <title>EES Pharma Parking Access Digital Twin</title>
+  <link rel="stylesheet" href="./style.css">
+  <script type="importmap">
+    {"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.185.1/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.185.1/examples/jsm/"}}
+  </script>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-orb">EES</div>
+        <div><p>PHARMA · SECURE EMPLOYEE PARKING</p><h1>Parking Access Digital Twin</h1></div>
+      </div>
+      <div class="status-row">
+        <span class="chip online">● PLC ONLINE</span>
+        <span class="chip" id="api-chip">● API CHECKING</span>
+        <span class="chip"><b id="scan-count">0</b> scans</span>
+        <span class="chip">100 ms cycle</span>
+      </div>
+    </header>
+
+    <main class="grid">
+      <section class="panel viewport-panel">
+        <div class="panel-head">
+          <div><p>THREE.JS DIGITAL TWIN</p><h2>70-Space Employee Parking Lot</h2></div>
+          <div class="head-actions"><button data-camera="overview">Overview</button><button data-camera="entry">Entry</button><button data-camera="exit">Exit</button></div>
+        </div>
+        <div id="scene"></div>
+        <div class="hologram">
+          <small>LIVE OCCUPANCY</small>
+          <div><strong id="count">0</strong><span>/70</span></div>
+          <div class="meter"><i id="meter-fill"></i></div>
+          <h3 id="lot-state">LOT EMPTY</h3>
+          <p id="remaining">70 spaces available</p>
+          <div class="occupant-breakdown"><span>Employees <b id="employee-count">0</b></span><span>Visitors <b id="visitor-count">0</b></span></div>
+        </div>
+      </section>
+
+      <aside class="right-column">
+        <section class="panel access-panel">
+          <div class="panel-head"><div><p>ACCESS CONTROL</p><h2>Vehicle Identification</h2></div><span class="mode manual" id="access-mode">SECURE</span></div>
+          <div class="access-form">
+            <label for="vehicle-id">Vehicle Identifier</label>
+            <div class="vehicle-input-row"><input id="vehicle-id" autocomplete="off" placeholder="EMP-1001-A or visitor vehicle"><button id="clear-vehicle" title="Clear">×</button></div>
+            <div class="demo-vehicles">
+              <button data-vehicle="EMP-1001-A">Employee 1001</button>
+              <button data-vehicle="EMP-1002-A">Employee 1002</button>
+              <button data-vehicle="VISITOR-001">Visitor Demo</button>
+            </div>
+            <div class="access-actions"><button id="detect-entry" class="primary-action">Detect at Entry</button><button id="detect-exit">Detect at Exit</button></div>
+          </div>
+          <div class="state-card"><span></span><div><small>CURRENT ACCESS STATE</small><b id="state-text">Ready for vehicle detection</b></div></div>
+          <div class="access-result" id="access-result"><small>ACCESS DECISION</small><strong>STANDBY</strong><p>No vehicle request active.</p></div>
+        </section>
+
+        <section class="panel security-panel">
+          <div class="panel-head"><div><p>SECURITY DESK</p><h2>Visitor Approval</h2></div><span class="security-count" id="pending-count">0 PENDING</span></div>
+          <div id="security-empty" class="empty-security">Unknown vehicles remain at the closed gate until Security approves or denies access.</div>
+          <div id="security-request" class="security-request hidden">
+            <small>PENDING VEHICLE</small><strong id="security-vehicle">—</strong>
+            <p id="security-request-id">Request —</p>
+            <div class="security-actions"><button id="approve-visitor">Buzz In + Issue Visitor ID</button><button id="deny-visitor" class="deny">Deny</button></div>
+          </div>
+        </section>
+
+        <section class="panel hmi-panel">
+          <div class="panel-head"><div><p>PLC / GATE STATUS</p><h2>Holographic HMI</h2></div></div>
+          <button id="estop" class="estop">● EMERGENCY STOP</button>
+          <div class="io-grid">
+            <div><small>Entry gate</small><b id="entry-gate">CLOSED</b></div><div><small>Exit gate</small><b id="exit-gate">CLOSED</b></div>
+            <div><small>Lot full</small><b id="full">FALSE</b></div><div><small>Lot empty</small><b id="empty">TRUE</b></div>
+            <div><small>DB state</small><b id="db-state">CHECKING</b></div><div><small>Visitor IDs</small><b id="visitor-pool">—</b></div>
+          </div>
+        </section>
+
+        <section class="panel tags-panel">
+          <div class="panel-head"><div><p>PLC DIAGNOSTICS</p><h2>Live Tags</h2></div></div>
+          <div class="tags">
+            <div class="tag head"><span>Tag</span><span>Type</span><span>Value</span></div>
+            <div class="tag"><span>Vehicle_Detected</span><span>BOOL</span><b id="t-detected">FALSE</b></div>
+            <div class="tag"><span>Employee_Vehicle</span><span>BOOL</span><b id="t-employee">FALSE</b></div>
+            <div class="tag"><span>Visitor_Vehicle</span><span>BOOL</span><b id="t-visitor">FALSE</b></div>
+            <div class="tag"><span>Vehicle_Authorized</span><span>BOOL</span><b id="t-authorized">FALSE</b></div>
+            <div class="tag"><span>Security_Approval</span><span>BOOL</span><b id="t-security">FALSE</b></div>
+            <div class="tag"><span>Entry_Gate_Open</span><span>BOOL</span><b id="t-entry-gate">FALSE</b></div>
+            <div class="tag"><span>Exit_Gate_Open</span><span>BOOL</span><b id="t-exit-gate">FALSE</b></div>
+            <div class="tag"><span>Car_Count</span><span>INT</span><b id="t-count">0</b></div>
+            <div class="tag"><span>Spots_Remaining</span><span>INT</span><b id="t-remaining">70</b></div>
+          </div>
+        </section>
+      </aside>
+
+      <section class="panel logic-panel">
+        <div class="panel-head"><div><p>IEC 61131-3 CONCEPT VIEW</p><h2>Secure Entry Logic</h2></div></div>
+        <div class="secure-logic">
+          <div class="node" id="node-detect">Vehicle_Detected<b>FALSE</b></div><i id="wire-detect"></i>
+          <div class="block auth-block">DB LOOKUP<br><b>EMPLOYEE?</b></div><i></i>
+          <div class="block auth-block">OR<br><b>EMPLOYEE_AUTH<br>SECURITY_APPROVAL</b></div><i></i>
+          <div class="block">AND / NOT<br><b>NOT FULL<br>NOT E-STOP</b></div><i id="wire-gate"></i>
+          <div class="node" id="node-gate">Entry_Gate_Open<b>FALSE</b></div>
+        </div>
+        <div class="logic-note">Employee vehicles are authorized automatically from <code>ees_data_platform.parking_access.employee_vehicles</code>. Unknown vehicles require a Security approval before the gate output can energize.</div>
+      </section>
+
+      <section class="panel log-panel">
+        <div class="panel-head"><div><p>EVENT BUFFER</p><h2>Access + PLC Event Log</h2></div><button id="clear-log">Clear</button></div>
+        <div id="log"></div>
+      </section>
+    </main>
+    <footer><span>EES Universe · Pharma Employee Parking Security Layer</span><span>Virtual PLC + FastAPI + PostgreSQL + Three.js Digital Twin</span></footer>
+  </div>
+  <script src="./config.js"></script>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
