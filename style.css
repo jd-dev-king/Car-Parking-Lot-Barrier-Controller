@@ -13,3 +13,56 @@
    ========================================================= */
 #scene{height:720px}.viewport-panel{min-height:790px}.hologram{width:245px}.occupant-breakdown{display:grid!important;grid-template-columns:1fr 1fr;gap:7px;margin-top:12px!important}.occupant-breakdown span{padding:7px;border:1px solid var(--line);border-radius:9px;color:var(--muted);font-size:.65rem}.occupant-breakdown b{display:block;margin-top:2px;color:var(--cyan);font:700 .8rem Orbitron}.access-form{padding:14px}.access-form label{display:block;margin-bottom:7px;color:var(--muted);font-size:.68rem;font-weight:700}.vehicle-input-row{display:grid;grid-template-columns:1fr 42px;gap:7px}.vehicle-input-row input{width:100%;min-height:44px;padding:0 12px;border:1px solid var(--line);border-radius:10px;background:#061321;color:var(--text);outline:none;text-transform:uppercase}.vehicle-input-row input:focus{border-color:var(--cyan);box-shadow:0 0 0 2px rgba(67,220,255,.08)}.vehicle-input-row button,.demo-vehicles button,.access-actions button,.security-actions button{border:1px solid var(--line);border-radius:9px;background:#0b1c2d;color:var(--muted);cursor:pointer;font-weight:700}.vehicle-input-row button{font-size:1.25rem}.demo-vehicles{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}.demo-vehicles button{padding:7px 9px;font-size:.62rem}.demo-vehicles button:hover{color:var(--cyan);border-color:var(--cyan)}.access-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}.access-actions button{min-height:44px;color:var(--text)}.access-actions .primary-action{border-color:rgba(67,240,160,.45);background:rgba(30,104,71,.35);color:var(--green)}.access-actions button:disabled{opacity:.35;cursor:not-allowed}.access-result{margin:0 14px 14px;padding:13px;border:1px solid var(--line);border-radius:12px;background:#071725}.access-result small,.access-result strong,.access-result p{display:block}.access-result small{color:var(--muted);font-size:.6rem;letter-spacing:.12em}.access-result strong{margin-top:5px;color:var(--cyan);font:700 .85rem Orbitron}.access-result p{margin:5px 0 0;color:var(--muted);font-size:.7rem}.access-result.granted{border-color:rgba(67,240,160,.45);background:rgba(30,104,71,.16)}.access-result.granted strong{color:var(--green)}.access-result.pending{border-color:rgba(255,199,90,.5);background:rgba(120,83,13,.17)}.access-result.pending strong{color:var(--amber)}.access-result.denied{border-color:rgba(255,82,110,.5);background:rgba(117,13,34,.2)}.access-result.denied strong{color:var(--red)}.security-count{padding:7px 10px;border:1px solid rgba(255,199,90,.35);border-radius:999px;color:var(--amber);font-size:.65rem;font-weight:800}.empty-security{padding:18px;color:var(--muted);font-size:.72rem}.security-request{margin:14px;padding:14px;border:1px solid rgba(255,199,90,.45);border-radius:12px;background:rgba(120,83,13,.12)}.security-request.hidden{display:none}.security-request small,.security-request strong{display:block}.security-request small{color:var(--amber);font-size:.62rem;letter-spacing:.12em}.security-request strong{margin-top:6px;font:700 1rem Orbitron}.security-request p{color:var(--muted);font-size:.68rem}.security-actions{display:grid;grid-template-columns:1.4fr .7fr;gap:8px}.security-actions button{min-height:42px;color:var(--green);border-color:rgba(67,240,160,.4)}.security-actions .deny{color:var(--red);border-color:rgba(255,82,110,.4)}.secure-logic{display:flex;align-items:center;justify-content:center;overflow:auto;padding:42px 24px}.secure-logic>i{flex:0 0 45px;height:2px;background:rgba(139,167,184,.35)}.logic-note{padding:0 24px 24px;color:var(--muted);font-size:.75rem;text-align:center}.logic-note code{color:var(--cyan)}.auth-block{min-width:170px}.chip.api-online{color:var(--green)}.chip.api-offline{color:var(--red)}
 @media(max-width:760px){#scene{height:540px}.viewport-panel{min-height:auto}.secure-logic{justify-content:flex-start}.access-actions,.security-actions{grid-template-columns:1fr}}
+
+/* v3.0.1 database-driven demo controls */
+.demo-load-error{font-size:.72rem;color:var(--red);padding:.35rem .5rem}
+#next-visitor-code{color:var(--cyan);letter-spacing:.04em}
+
+
+/* =========================================================
+   v3.0.4 DEMO RESET + LIVE OCCUPANCY ROSTER
+   ========================================================= */
+.occupant-breakdown .occupancy-drilldown{padding:8px;border:1px solid var(--line);border-radius:9px;background:rgba(7,21,37,.88);color:var(--muted);font-size:.65rem;cursor:pointer;transition:.18s ease}
+.occupant-breakdown .occupancy-drilldown:hover{border-color:var(--cyan);color:var(--text);transform:translateY(-1px);box-shadow:0 0 14px rgba(67,220,255,.12)}
+.occupant-breakdown .occupancy-drilldown b{display:block;margin-top:2px;color:var(--cyan);font:700 .8rem Orbitron}
+.occupant-breakdown .occupancy-drilldown small{display:block;margin-top:2px;color:var(--muted);font-size:.52rem}
+.restart-demo{padding:8px 10px;border:1px solid rgba(255,199,90,.5);border-radius:9px;background:rgba(120,83,13,.12);color:var(--amber);font:700 .62rem Orbitron;cursor:pointer}
+.restart-demo:hover{border-color:var(--amber);box-shadow:0 0 12px rgba(255,199,90,.12)}
+.restart-demo:disabled{opacity:.4;cursor:not-allowed}
+.occupancy-modal{position:fixed;inset:0;z-index:1000;display:grid;place-items:center;padding:22px;background:rgba(1,7,13,.78);backdrop-filter:blur(7px)}
+.occupancy-modal.hidden{display:none}
+.occupancy-modal-card{width:min(760px,96vw);max-height:82vh;overflow:hidden;border:1px solid var(--line);border-radius:16px;background:linear-gradient(180deg,#0b1b2b,#06111d);box-shadow:0 24px 80px rgba(0,0,0,.5)}
+.occupancy-modal-head{display:flex;align-items:center;justify-content:space-between;padding:17px 18px;border-bottom:1px solid var(--line)}
+.occupancy-modal-head p{margin:0;color:var(--cyan);font-size:.62rem;letter-spacing:.13em}.occupancy-modal-head h2{margin:3px 0 0;font-size:1rem}.occupancy-modal-head button{width:36px;height:36px;border:1px solid var(--line);border-radius:9px;background:#081827;color:var(--text);cursor:pointer;font-size:1.25rem}
+.occupancy-roster-summary{padding:11px 18px;color:var(--muted);font-size:.7rem;border-bottom:1px solid rgba(91,202,255,.08)}
+.occupancy-roster{max-height:60vh;overflow:auto;padding:10px 18px 18px}
+.occupancy-roster-row{display:grid;grid-template-columns:1.25fr .9fr .65fr .85fr;gap:10px;align-items:center;padding:11px 8px;border-bottom:1px solid rgba(91,202,255,.09)}
+.occupancy-roster-row strong{color:var(--text)}.occupancy-roster-row span,.occupancy-roster-row small{color:var(--muted);font-size:.68rem}.occupancy-roster-row .occupant-badge{justify-self:start;padding:5px 7px;border:1px solid var(--line);border-radius:999px;color:var(--cyan);font-size:.58rem;font-weight:800}.occupancy-roster-row.visitor .occupant-badge{color:var(--amber);border-color:rgba(255,199,90,.4)}
+.occupancy-roster-empty{padding:30px 10px;text-align:center;color:var(--muted)}
+@media(max-width:620px){.occupancy-roster-row{grid-template-columns:1fr 1fr}.occupancy-roster-row .occupant-badge{justify-self:start}}
+
+/* =========================================================
+   v3.0.5 DEMO RESET + LIVE OCCUPANCY ROSTER
+   ========================================================= */
+
+.occupancy-reset {
+  width: 100%;
+  margin-top: 12px;
+  padding: 10px 12px;
+
+  border: 1px solid rgba(255, 190, 64, 0.55);
+  border-radius: 8px;
+
+  background: rgba(255, 170, 40, 0.08);
+
+  color: #ffc65c;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+
+  cursor: pointer;
+}
+
+.occupancy-reset:hover {
+  background: rgba(255, 170, 40, 0.16);
+  border-color: #ffc65c;
+}   

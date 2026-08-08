@@ -31,7 +31,7 @@ async def lifespan(app: FastAPI):
     close_pool()
 
 
-app = FastAPI(title="EES Pharma Parking Access API", version="3.0.0", lifespan=lifespan)
+app = FastAPI(title="EES Pharma Parking Access API", version="3.0.4", lifespan=lifespan)
 
 origins = [o.strip() for o in os.getenv("CORS_ORIGINS", "http://127.0.0.1:5500,http://localhost:5500").split(",") if o.strip()]
 app.add_middleware(
@@ -104,13 +104,25 @@ def parking_status():
         cur.execute("SELECT COUNT(*) AS available FROM parking_access.visitor_passes WHERE status='AVAILABLE'")
         pass_count = cur.fetchone()["available"]
         cur.execute("""
-            SELECT ps.vehicle_identifier, ps.occupant_type, sp.space_number,
-                   vp.visitor_code
+            SELECT
+                ps.vehicle_identifier,
+                ps.occupant_type,
+                sp.space_number,
+                ps.entry_time,
+                vp.visitor_code,
+                e.employee_number,
+                e.display_name
             FROM parking_access.parking_sessions ps
-            JOIN parking_access.parking_spaces sp ON sp.space_id=ps.space_id
-            LEFT JOIN parking_access.visitor_passes vp ON vp.visitor_pass_id=ps.visitor_pass_id
+            JOIN parking_access.parking_spaces sp
+                ON sp.space_id = ps.space_id
+            LEFT JOIN parking_access.visitor_passes vp
+                ON vp.visitor_pass_id = ps.visitor_pass_id
+            LEFT JOIN parking_access.employee_vehicles ev
+                ON ev.vehicle_id = ps.employee_vehicle_id
+            LEFT JOIN parking_access.employees e
+                ON e.employee_id = ev.employee_id
             WHERE ps.session_status='ACTIVE'
-            ORDER BY sp.zone, sp.space_number
+            ORDER BY ps.occupant_type, sp.zone, sp.space_number
         """)
         sessions = cur.fetchall()
         occupied = counts["occupied"]
@@ -128,6 +140,105 @@ def parking_status():
         }
 
 
+@app.post("/api/admin/reset-demo")
+def reset_demo():
+    """Return the simulator to an empty-lot demo state without deleting audit history."""
+    with connection() as conn, conn.cursor() as cur:
+        cur.execute("SELECT COUNT(*) AS count FROM parking_access.parking_sessions WHERE session_status='ACTIVE'")
+        active_count = cur.fetchone()["count"]
+
+        cur.execute("""
+            UPDATE parking_access.parking_sessions
+            SET session_status='CLOSED', exit_time=CURRENT_TIMESTAMP
+            WHERE session_status='ACTIVE'
+        """)
+        cur.execute("""
+            UPDATE parking_access.parking_spaces
+            SET occupied=FALSE, updated_at=CURRENT_TIMESTAMP
+        """)
+        cur.execute("""
+            UPDATE parking_access.visitor_passes
+            SET status='AVAILABLE', issued_at=NULL, activated_at=NULL,
+                returned_at=NULL, reusable_after=NULL, updated_at=CURRENT_TIMESTAMP
+        """)
+        cur.execute("""
+            UPDATE parking_access.security_requests
+            SET status='CANCELLED', decided_at=CURRENT_TIMESTAMP,
+                security_user=COALESCE(security_user, 'SYSTEM-DEMO-RESET'),
+                notes=CASE
+                    WHEN notes IS NULL OR notes='' THEN 'Cancelled by demo restart'
+                    ELSE notes || ' | Cancelled by demo restart'
+                END
+            WHERE status='PENDING'
+        """)
+        log_event(
+            cur,
+            "SYSTEM",
+            None,
+            "DEMO_RESET",
+            "GRANTED",
+            f"Demo restarted; {active_count} active parking session(s) closed and lot reset to empty.",
+        )
+        conn.commit()
+        return {
+            "ok": True,
+            "closed_sessions": active_count,
+            "message": "Parking demo reset to an empty lot. Audit history preserved.",
+        }
+
+
+@app.get("/api/demo/identifiers")
+def demo_identifiers():
+    with connection() as conn, conn.cursor() as cur:
+        cur.execute("""
+            SELECT e.employee_number, e.display_name, e.employment_status,
+                   e.parking_authorized, ev.vehicle_identifier, ev.make, ev.model, ev.color
+            FROM parking_access.employees e
+            JOIN parking_access.employee_vehicles ev ON ev.employee_id=e.employee_id
+            ORDER BY e.employee_number
+        """)
+        rows = cur.fetchall()
+        cur.execute("""
+            SELECT visitor_code
+            FROM parking_access.visitor_passes
+            WHERE status='AVAILABLE'
+            ORDER BY visitor_code
+            LIMIT 1
+        """)
+        next_pass = cur.fetchone()
+        return {
+            "authorized": [r for r in rows if r["employment_status"] == "ACTIVE" and r["parking_authorized"]],
+            "denied_examples": [r for r in rows if r["employment_status"] != "ACTIVE" or not r["parking_authorized"]],
+            "unknown_visitor_examples": ["VISITOR-DEMO-01", "DELIVERY-TRUCK-07", "CONTRACTOR-302"],
+            "next_available_visitor_code": next_pass["visitor_code"] if next_pass else None,
+        }
+
+
+def employee_record_for_vehicle(cur, vehicle):
+    cur.execute("""
+        SELECT ev.vehicle_id, e.employee_number, e.display_name,
+               e.employment_status, e.parking_authorized
+        FROM parking_access.employee_vehicles ev
+        JOIN parking_access.employees e ON e.employee_id=ev.employee_id
+        WHERE ev.vehicle_identifier=%s
+          AND ev.active=TRUE
+        LIMIT 1
+    """, (vehicle,))
+    return cur.fetchone()
+
+
+def employee_exception_reason(employee):
+    if not employee:
+        return None
+    if employee["employment_status"] == "LEAVE":
+        return "Employee is currently on leave"
+    if employee["employment_status"] != "ACTIVE":
+        return "Employee record is inactive"
+    if not employee["parking_authorized"]:
+        return "Parking authorization is suspended"
+    return None
+
+
 @app.post("/api/access/entry")
 def entry(req: VehicleRequest):
     vehicle = normalize_vehicle(req.vehicle_identifier)
@@ -136,18 +247,10 @@ def entry(req: VehicleRequest):
         if cur.fetchone():
             raise HTTPException(status_code=409, detail="Vehicle already has an active parking session")
 
-        cur.execute("""
-            SELECT ev.vehicle_id, e.employee_number, e.display_name
-            FROM parking_access.employee_vehicles ev
-            JOIN parking_access.employees e ON e.employee_id=ev.employee_id
-            WHERE ev.vehicle_identifier=%s
-              AND ev.active=TRUE
-              AND e.employment_status='ACTIVE'
-              AND e.parking_authorized=TRUE
-        """, (vehicle,))
-        employee = cur.fetchone()
+        employee = employee_record_for_vehicle(cur, vehicle)
+        employee_exception = employee_exception_reason(employee)
 
-        if employee:
+        if employee and not employee_exception:
             space = allocate_space(cur)
             cur.execute("UPDATE parking_access.parking_spaces SET occupied=TRUE, updated_at=CURRENT_TIMESTAMP WHERE space_id=%s", (space["space_id"],))
             cur.execute("""
@@ -170,9 +273,31 @@ def entry(req: VehicleRequest):
         if not pending:
             cur.execute("INSERT INTO parking_access.security_requests (vehicle_identifier) VALUES (%s) RETURNING security_request_id, requested_at", (vehicle,))
             pending = cur.fetchone()
-        log_event(cur, "EMPLOYEE_ENTRY", vehicle, "UNKNOWN_VEHICLE", "PENDING", "Security approval required")
+        cur.execute("""
+            SELECT visitor_code
+            FROM parking_access.visitor_passes
+            WHERE status='AVAILABLE'
+            ORDER BY visitor_code
+            LIMIT 1
+        """)
+        next_pass = cur.fetchone()
+        review_type = "EMPLOYEE_EXCEPTION" if employee else "VISITOR_UNKNOWN"
+        review_reason = employee_exception or "Unknown vehicle; Security approval required"
+        event_type = "EMPLOYEE_EXCEPTION" if employee else "UNKNOWN_VEHICLE"
+        log_event(cur, "EMPLOYEE_ENTRY", vehicle, event_type, "PENDING", review_reason)
         conn.commit()
-        return {"decision": "SECURITY_REVIEW", "vehicle_identifier": vehicle, **pending}
+        return {
+            "decision": "SECURITY_REVIEW",
+            "review_type": review_type,
+            "review_reason": review_reason,
+            "vehicle_identifier": vehicle,
+            "employee_number": employee["employee_number"] if employee else None,
+            "display_name": employee["display_name"] if employee else None,
+            "employment_status": employee["employment_status"] if employee else None,
+            "parking_authorized": employee["parking_authorized"] if employee else None,
+            "next_visitor_code": None if employee else (next_pass["visitor_code"] if next_pass else None),
+            **pending,
+        }
 
 
 @app.get("/api/security/requests")
@@ -186,11 +311,36 @@ def security_requests(status: str = Query(default="PENDING")):
             ORDER BY requested_at
             LIMIT 50
         """, (status,))
-        return cur.fetchall()
+        requests = cur.fetchall()
+        cur.execute("""
+            SELECT visitor_code
+            FROM parking_access.visitor_passes
+            WHERE status='AVAILABLE'
+            ORDER BY visitor_code
+            LIMIT 1
+        """)
+        next_pass = cur.fetchone()
+        next_code = next_pass["visitor_code"] if next_pass else None
+        for request in requests:
+            employee = employee_record_for_vehicle(cur, request["vehicle_identifier"])
+            exception = employee_exception_reason(employee)
+            if employee and exception:
+                request["review_type"] = "EMPLOYEE_EXCEPTION"
+                request["review_reason"] = exception
+                request["employee_number"] = employee["employee_number"]
+                request["display_name"] = employee["display_name"]
+                request["employment_status"] = employee["employment_status"]
+                request["parking_authorized"] = employee["parking_authorized"]
+                request["next_visitor_code"] = None
+            else:
+                request["review_type"] = "VISITOR_UNKNOWN"
+                request["review_reason"] = "Unknown vehicle; Security approval required"
+                request["next_visitor_code"] = next_code
+        return requests
 
 
 @app.post("/api/security/requests/{request_id}/approve")
-def approve_visitor(request_id: int, decision: SecurityDecision):
+def approve_security_request(request_id: int, decision: SecurityDecision):
     with connection() as conn, conn.cursor() as cur:
         cur.execute("SELECT * FROM parking_access.security_requests WHERE security_request_id=%s FOR UPDATE", (request_id,))
         request = cur.fetchone()
@@ -199,12 +349,46 @@ def approve_visitor(request_id: int, decision: SecurityDecision):
         if request["status"] != "PENDING":
             raise HTTPException(status_code=409, detail=f"Security request already {request['status'].lower()}")
 
+        vehicle_identifier = request["vehicle_identifier"]
+        employee = employee_record_for_vehicle(cur, vehicle_identifier)
+        employee_exception = employee_exception_reason(employee)
+        space = allocate_space(cur)
+
+        # Known employee exceptions may be admitted by Security as a temporary override.
+        # They remain EMPLOYEE sessions and never consume a visitor credential.
+        if employee and employee_exception:
+            cur.execute("UPDATE parking_access.parking_spaces SET occupied=TRUE, updated_at=CURRENT_TIMESTAMP WHERE space_id=%s", (space["space_id"],))
+            cur.execute("UPDATE parking_access.security_requests SET status='APPROVED', decided_at=CURRENT_TIMESTAMP, security_user=%s, notes=%s WHERE security_request_id=%s", (decision.security_user, decision.notes, request_id))
+            cur.execute("""
+                INSERT INTO parking_access.parking_sessions
+                (vehicle_identifier, occupant_type, employee_vehicle_id, security_request_id, space_id)
+                VALUES (%s,'EMPLOYEE',%s,%s,%s)
+                RETURNING session_id, entry_time
+            """, (vehicle_identifier, employee["vehicle_id"], request_id, space["space_id"]))
+            session = cur.fetchone()
+            notes = decision.notes or f"Security override approved: {employee_exception}"
+            cur.execute("INSERT INTO parking_access.security_actions (security_request_id, action_type, security_user, notes) VALUES (%s,'EMPLOYEE_OVERRIDE',%s,%s)", (request_id, decision.security_user, notes))
+            log_event(cur, "EMPLOYEE_ENTRY", vehicle_identifier, "EMPLOYEE_OVERRIDE_APPROVED", "GRANTED", notes)
+            conn.commit()
+            return {
+                "decision": "GRANTED",
+                "approval_type": "EMPLOYEE_OVERRIDE",
+                "occupant_type": "EMPLOYEE",
+                "vehicle_identifier": vehicle_identifier,
+                "employee_number": employee["employee_number"],
+                "display_name": employee["display_name"],
+                "override_reason": employee_exception,
+                "spot_number": space["space_number"],
+                "session_id": session["session_id"],
+                "entry_time": session["entry_time"],
+            }
+
+        # Unknown vehicle: normal visitor workflow with pooled VIS-#### credential.
         cur.execute("UPDATE parking_access.visitor_passes SET status='AVAILABLE', reusable_after=NULL, updated_at=CURRENT_TIMESTAMP WHERE status='QUARANTINED' AND reusable_after <= CURRENT_TIMESTAMP")
         cur.execute("SELECT visitor_pass_id, visitor_code FROM parking_access.visitor_passes WHERE status='AVAILABLE' ORDER BY visitor_code FOR UPDATE SKIP LOCKED LIMIT 1")
         visitor_pass = cur.fetchone()
         if not visitor_pass:
             raise HTTPException(status_code=409, detail="No visitor IDs are currently available")
-        space = allocate_space(cur)
 
         cur.execute("UPDATE parking_access.visitor_passes SET status='ACTIVE', issued_at=CURRENT_TIMESTAMP, activated_at=CURRENT_TIMESTAMP, returned_at=NULL, reusable_after=NULL, updated_at=CURRENT_TIMESTAMP WHERE visitor_pass_id=%s", (visitor_pass["visitor_pass_id"],))
         cur.execute("UPDATE parking_access.parking_spaces SET occupied=TRUE, updated_at=CURRENT_TIMESTAMP WHERE space_id=%s", (space["space_id"],))
@@ -214,13 +398,13 @@ def approve_visitor(request_id: int, decision: SecurityDecision):
             (vehicle_identifier, occupant_type, visitor_pass_id, security_request_id, space_id)
             VALUES (%s,'VISITOR',%s,%s,%s)
             RETURNING session_id, entry_time
-        """, (request["vehicle_identifier"], visitor_pass["visitor_pass_id"], request_id, space["space_id"]))
+        """, (vehicle_identifier, visitor_pass["visitor_pass_id"], request_id, space["space_id"]))
         session = cur.fetchone()
         cur.execute("INSERT INTO parking_access.security_actions (security_request_id, action_type, security_user, notes) VALUES (%s,'BUZZ_IN',%s,%s)", (request_id, decision.security_user, decision.notes))
-        log_event(cur, "EMPLOYEE_ENTRY", request["vehicle_identifier"], "VISITOR_APPROVED", "GRANTED", f"Visitor pass {visitor_pass['visitor_code']} issued", visitor_pass["visitor_pass_id"])
+        log_event(cur, "EMPLOYEE_ENTRY", vehicle_identifier, "VISITOR_APPROVED", "GRANTED", f"Visitor pass {visitor_pass['visitor_code']} issued", visitor_pass["visitor_pass_id"])
         conn.commit()
         return {
-            "decision": "GRANTED", "occupant_type": "VISITOR", "vehicle_identifier": request["vehicle_identifier"],
+            "decision": "GRANTED", "approval_type": "VISITOR", "occupant_type": "VISITOR", "vehicle_identifier": vehicle_identifier,
             "visitor_pass_code": visitor_pass["visitor_code"], "spot_number": space["space_number"],
             "session_id": session["session_id"], "entry_time": session["entry_time"]
         }
@@ -237,7 +421,9 @@ def deny_visitor(request_id: int, decision: SecurityDecision):
             raise HTTPException(status_code=409, detail=f"Security request already {request['status'].lower()}")
         cur.execute("UPDATE parking_access.security_requests SET status='DENIED', decided_at=CURRENT_TIMESTAMP, security_user=%s, notes=%s WHERE security_request_id=%s", (decision.security_user, decision.notes, request_id))
         cur.execute("INSERT INTO parking_access.security_actions (security_request_id, action_type, security_user, notes) VALUES (%s,'DENY',%s,%s)", (request_id, decision.security_user, decision.notes))
-        log_event(cur, "EMPLOYEE_ENTRY", request["vehicle_identifier"], "VISITOR_DENIED", "DENIED", decision.notes)
+        employee = employee_record_for_vehicle(cur, request["vehicle_identifier"])
+        exception = employee_exception_reason(employee)
+        log_event(cur, "EMPLOYEE_ENTRY", request["vehicle_identifier"], "EMPLOYEE_OVERRIDE_DENIED" if employee and exception else "VISITOR_DENIED", "DENIED", decision.notes or exception)
         conn.commit()
         return {"decision": "DENIED", "vehicle_identifier": request["vehicle_identifier"]}
 
@@ -253,7 +439,7 @@ def exit_vehicle(req: VehicleRequest):
             JOIN parking_access.parking_spaces sp ON sp.space_id=ps.space_id
             LEFT JOIN parking_access.visitor_passes vp ON vp.visitor_pass_id=ps.visitor_pass_id
             WHERE ps.vehicle_identifier=%s AND ps.session_status='ACTIVE'
-            FOR UPDATE
+            FOR UPDATE OF ps
         """, (vehicle,))
         session = cur.fetchone()
         if not session:

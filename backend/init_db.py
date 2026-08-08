@@ -6,6 +6,7 @@ open_pool()
 try:
     run_sql_file(BASE / "sql" / "001_parking_access_schema.sql")
     run_sql_file(BASE / "sql" / "002_seed_demo_data.sql")
-    print("Initialized ees_data_platform.parking_access with 70 spaces, demo employees, and 50 visitor IDs.")
+    run_sql_file(BASE / "sql" / "003_register_data_moon.sql")
+    print("Initialized ees_data_platform.parking_access with 70 spaces, 15 demo employees/vehicles, 50 visitor IDs, and Data Moon registration.")
 finally:
     close_pool()
